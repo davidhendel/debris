@@ -1,0 +1,139 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
+from astropy.cosmology import z_at_value
+import astropy.units as u
+import cld_fnc as cf
+import string
+from astropy.cosmology import FlatLambdaCDM
+cosmo = FlatLambdaCDM(H0=72, Om0=0.25)
+
+def dobutton():
+    global mus, omegaes, omegae1s, omegals, alphas, usedrcircs, usedmasses, usedls, tsnaps, classifications
+    lcirc, ecirc, vcirc, randrcirc, randmass, randl, randt = newmerger()
+    omegae, omegae1, omegal, alpha, mu = cf.omegaeomegal(1.77e11,float(string.split(randmass,'M')[1])/1.77e11,z_at_value(cosmo.age,cosmo.age(0)-d.tsnap*u.Gyr),ecirc,lcirc*float(randl), verbose=False, fidu=True)
+    (omegaes, omegae1s, omegals, alphas, mus) = (omegaes+[omegae], omegae1s+[omegae1], omegals+[omegal], alphas+[alpha], mus+[mu]) 
+    (usedmasses, usedrcircs, usedls, tsnaps) = (usedmasses+[randmass], usedrcircs+[randrcirc], usedls+[randl], tsnaps+[randt])
+    return
+
+
+def newmerger():
+
+    rootdir = '/media/backup1/hendel/sims/clouds/'
+    randrcirc= np.random.choice([25.,50.,100.])
+    randmass = np.random.choice(['M2.5e+06','M2.5e+07','M2.5e+08'])#,'M2.5e+09'])
+    randl    = np.random.choice(['0.05','0.10','0.20','0.30','0.40','0.50','0.60','0.70','0.80','0.90','0.95'])
+    if randrcirc == 25: randt    = np.random.randint(10,101)
+    if randrcirc == 50: randt    = np.random.randint(15,101)
+    if randrcirc ==100: randt    = np.random.randint(30,101)
+
+    vcirc = np.sqrt(cf.gee*cf.m_encl(randrcirc)*cf.sminkg/(randrcirc*cf.mperkpc))/1000. #km/s
+    lcirc = randrcirc*cf.mperkpc*vcirc*1000. #J*s
+    ecirc = cf.halo_pot(randrcirc) + 0.5*(vcirc*1000.)**2
+
+    d.init(rootdir+'rc%i/'%(int(randrcirc))+randmass+'/L'+randl+'/',randt, rel=False)
+    cla()
+    plt.scatter(d.x,d.y, alpha = 0.15, s=2, edgecolor='none', c='k')
+    plt.plot([-15,15],[0,0], c='b', lw=3)
+
+    return lcirc, ecirc, vcirc, randrcirc, randmass, randl, randt
+
+def savedata(filename):
+    savearr = np.vstack([array(mus[:-1]), array(omegaes[:-1]), array(omegae1s[:-1]), array(omegals[:-1]), array(alphas[:-1]), array(usedrcircs[:-1]), array(usedmasses[:-1]), array(usedls[:-1]), array(tsnaps[:-1]), array(classifications)])
+    np.save(filename, np.transpose(savearr))
+
+
+#if 0:
+#    dout = np.transpose(np.vstack([randrcircs, usedmasses, usedls, tsnaps, omegaes, omegae1s, omegals, alphas, mus, classifications]))
+#    np.savetxt('classifyer_output6.txt', dout)
+
+def plotdata():
+    plt.figure()
+    plt.subplot(aspect='equal')
+    isstream = (np.array(classifications) =='stream')
+    isshell = (np.array(classifications) =='shell')
+    istooearly = (np.array(classifications) =='tooearly')
+    istoolate = (np.array(classifications) =='toolate')
+    isunsure = (np.array(classifications) =='unsure')
+
+    classes=[isstream, isshell, istooearly, istoolate, isunsure]
+    colors =['b', 'r', 'k', 'k', 'g']
+    for i in np.arange(len(classes)):
+        plt.scatter(array(omegae1s)[classes[i]]*180./np.pi, array(omegals)[classes[i]]*180./np.pi, color = colors[i], edgecolor='none')
+    plt.plot([0,100],[0,100],color='k',lw=3)
+    plt.xlim([0,100])
+    plt.ylim([0,100])
+    plt.xlabel('$\Psi_E^1$ [degrees]')
+    plt.ylabel('$\Psi_L$ [degrees]')
+
+
+
+fig = plt.figure()
+ax  = plt.subplot(111, aspect='equal')
+plt.subplots_adjust(bottom=0.2)
+d = cf.particles()
+
+mus             = []
+omegaes         = []
+omegae1s        = []
+omegals         = []
+alphas          = []
+usedrcircs      = []
+usedmasses      = []
+usedls          = []
+tsnaps          = []
+classifications = []
+
+dobutton()
+
+class ButtonTasks:
+    def addshell(self, event):
+        global classifications
+        classifications = classifications + ['shell']
+        dobutton()        
+
+    def addstream(self, event):
+        global classifications
+        classifications = classifications + ['stream']
+        dobutton()
+
+    def addtooearly(self, event):
+        global classifications
+        classifications = classifications + ['too early']
+        dobutton()
+
+    def addtoolate(self, event):
+        global classifications
+        classifications = classifications + ['too late']
+        dobutton()
+
+    def addunsure(self, event):
+        global classifications
+        dobutton()
+        classifications = classifications + ['unsure']
+
+dostuff = ButtonTasks()
+axshell    = plt.axes([0.05, 0.05, 0.1, 0.075])
+axstream   = plt.axes([0.25, 0.05, 0.1, 0.075])
+axtooearly = plt.axes([0.45, 0.05, 0.1, 0.075])
+axtoolate  = plt.axes([0.65, 0.05, 0.1, 0.075])
+axunsure   = plt.axes([0.85, 0.05, 0.1, 0.075])
+
+bshell     = Button(axshell,    'shell    ')
+bstream    = Button(axstream,  'stream   ')
+btooearly  = Button(axtooearly, 'too early ')
+btoolate   = Button(axtoolate,  'too late  ')
+bunsure   = Button(axunsure,  'unsure  ')
+
+bshell.on_clicked(dostuff.addshell)
+bstream.on_clicked(dostuff.addstream)
+btooearly.on_clicked(dostuff.addtooearly)
+btoolate.on_clicked(dostuff.addtoolate)
+bunsure.on_clicked(dostuff.addunsure)
+
+
+
+plt.subplot(1,1,1, aspect='equal')
+
+plt.show()
+
