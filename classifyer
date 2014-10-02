@@ -7,6 +7,7 @@ import cld_fnc as cf
 import string
 from astropy.cosmology import FlatLambdaCDM
 cosmo = FlatLambdaCDM(H0=72, Om0=0.25)
+rootdir = '/media/backup1/hendel/sims/clouds/'
 
 def dobutton():
     global mus, omegaes, omegae1s, omegals, alphas, usedrcircs, usedmasses, usedls, tsnaps, classifications
@@ -47,24 +48,158 @@ def savedata(filename):
 #    dout = np.transpose(np.vstack([randrcircs, usedmasses, usedls, tsnaps, omegaes, omegae1s, omegals, alphas, mus, classifications]))
 #    np.savetxt('classifyer_output6.txt', dout)
 
-def plotdata():
-    plt.figure()
-    plt.subplot(aspect='equal')
+def plotdata(newfig=True):
+    if newfig: plt.figure(figsize=(6,6), dpi=120)
+    if newfig: plt.subplot(aspect='equal')
     isstream = (np.array(classifications) =='stream')
     isshell = (np.array(classifications) =='shell')
     istooearly = (np.array(classifications) =='tooearly')
     istoolate = (np.array(classifications) =='toolate')
     isunsure = (np.array(classifications) =='unsure')
 
-    classes=[isstream, isshell, istooearly, istoolate, isunsure]
-    colors =['b', 'r', 'k', 'k', 'g']
+    classes=[isstream, isshell, isunsure]
+    colors =['b', 'r', 'g']
+    markers = ['^', 'o', 's']
+    labels = ['stream', 'shell', 'unsure']
+
     for i in np.arange(len(classes)):
-        plt.scatter(array(omegae1s)[classes[i]]*180./np.pi, array(omegals)[classes[i]]*180./np.pi, color = colors[i], edgecolor='none')
+        plt.scatter(array(omegae1s)[classes[i]]*180./np.pi, array(omegals)[classes[i]]*180./np.pi, label = labels[i], marker = markers[i], color = colors[i], edgecolor='none')
     plt.plot([0,100],[0,100],color='k',lw=3)
     plt.xlim([0,100])
     plt.ylim([0,100])
-    plt.xlabel('$\Psi_E^1$ [degrees]')
-    plt.ylabel('$\Psi_L$ [degrees]')
+    plt.xlabel('$\Psi_E^1$ [degrees]', size = 'x-large')
+    plt.ylabel('$\Psi_L$ [degrees]', size = 'x-large')
+    plt.legend(['$\mathrm{\mu}=1$']+labels, scatterpoints=1)
+
+def findpoint(emin=0, emax=1e6, lmin=0, lmax=1e6, plot=True):
+    matches = np.arange(len(mus))[((array(omegae1s)[:-1]>(emin/180.*np.pi)) & 
+            (array(omegae1s)[:-1]<(emax/180.*np.pi)) &
+            (array(omegals)[:-1]>(lmin/180.*np.pi)) & 
+            (array(omegals)[:-1]<(lmax/180.*np.pi)))]
+    if len(matches)==1: return matches
+    else: print 'multiple points match:', matches
+
+def plotpoint(i, newfig=True):
+    if newfig: plt.figure()
+    if newfig: plt.subplot(aspect='equal')
+    e.init(rootdir + 'rc%i'%usedrcircs[i]+'/'+usedmasses[i]+'/L'+usedls[i]+'/', tsnaps[i], rel=False)
+    plt.scatter(e.x,e.y, alpha = 0.05, s=2, edgecolor='none', c='k')
+    plt.xlabel('x [kpc]', size = 'large')
+    plt.ylabel('y [kpc]', size = 'large')
+
+
+def ax_norm(ax):
+    x_range = ax.get_xlim()
+    y_range = ax.get_ylim()
+    axisratio = (x_range[1]-x_range[0])/(y_range[1]-y_range[0])
+    if (x_range[1]-x_range[0])>(y_range[1]-y_range[0]):
+        right = (y_range[1]-mean(y_range))*axisratio+mean(y_range)
+        left  = (y_range[0]-mean(y_range))*axisratio+mean(y_range)
+        plt.ylim((left,right))
+
+    if (x_range[1]-x_range[0])<(y_range[1]-y_range[0]):
+        top     = (x_range[1]-mean(x_range))/axisratio+mean(x_range)
+        bottom  = (x_range[0]-mean(x_range))/axisratio+mean(x_range)
+        plt.xlim((bottom,top))
+
+
+def plotexample(emin=0, emax=1e6, lmin=0, lmax=1e6):
+    fig = plt.figure(figsize=(13,6), dpi=120)
+    plt.subplot(121, aspect='equal')
+    plotdata(newfig=False)
+    i = findpoint(emin=emin, emax=emax, lmin=lmin, lmax=lmax)
+    plt.scatter(omegae1s[i]*180./np.pi, omegals[i]*180./np.pi, facecolor='none', s=250, lw=4)
+    plt.subplot(122, aspect='equal')
+    plotpoint(i, newfig=False)
+    ax = fig.get_axes()[1]
+    ax_norm(ax)
+    fig.subplots_adjust(wspace=0.35)
+    #fig.tight_layout()
+
+#plotexample(emin=36.7, emax=37, lmin =53.1, lmax=53.4)
+#plt.savefig('/scratch/hendel/clouds/code/nfw/clouds/mu_plot_1.png',bbox_inches='tight')
+#plotexample(emin=5.05, emax=5.2, lmin =54.1, lmax=54.2)
+#plt.savefig('/scratch/hendel/clouds/code/nfw/clouds/mu_plot_2.png',bbox_inches='tight')
+#plotexample(emin=36.65, emax=36.75, lmin =17.8, lmax=18)
+#plt.savefig('/scratch/hendel/clouds/code/nfw/clouds/mu_plot_3.png',bbox_inches='tight')
+#plotexample(emin=76, emax=77, lmin =24.6, lmax=25.2)
+#plt.savefig('/scratch/hendel/clouds/code/nfw/clouds/mu_plot_4.png',bbox_inches='tight')
+##plotexample(emin=65, emax=66, lmin =21, lmax=23)
+
+
+def plotmultiexample():
+    fig = plt.figure(figsize=(13,6), dpi=120)
+    plt.subplot(1,2,1, aspect='equal')
+    plotdata(newfig=False)
+
+    # get point number:
+    if 1:
+        i1 = findpoint(emin=36.7, emax=37, lmin =53.1, lmax=53.4)
+        i2 = findpoint(emin=5.05, emax=5.2, lmin =54.1, lmax=54.2)
+        i3 = findpoint(emin=36.65, emax=36.75, lmin =17.8, lmax=18)
+        i4 = findpoint(emin=76, emax=77, lmin =24.6, lmax=25.2)
+
+    #text label chosen points
+    if 1:
+        plt.scatter(omegae1s[i1]*180./np.pi, omegals[i1]*180./np.pi, facecolor='none', s=150, lw=3)
+        plt.scatter(omegae1s[i2]*180./np.pi, omegals[i2]*180./np.pi, facecolor='none', s=150, lw=3)
+        plt.scatter(omegae1s[i3]*180./np.pi, omegals[i3]*180./np.pi, facecolor='none', s=150, lw=3)
+        plt.scatter(omegae1s[i4]*180./np.pi, omegals[i4]*180./np.pi, facecolor='none', s=150, lw=3)
+        plt.text(omegae1s[i1]*180./np.pi+1.5, omegals[i1]*180./np.pi+1.5,'B', weight='normal', size='x-large')
+        plt.text(omegae1s[i2]*180./np.pi+1.5, omegals[i2]*180./np.pi+1.5,'A', weight='normal', size='x-large')
+        plt.text(omegae1s[i3]*180./np.pi+1.5, omegals[i3]*180./np.pi+1.5,'C', weight='normal', size='x-large')
+        plt.text(omegae1s[i4]*180./np.pi+1.5, omegals[i4]*180./np.pi+1.5,'D', weight='normal', size='x-large')
+
+    #do subplots
+    if 1:
+        text_axis_ratio = 0.75
+        plt.subplot(2,4,3, aspect='equal')
+        plotpoint(i2, newfig=False)
+        plt.locator_params(nbins=5)
+        ax = fig.get_axes()[-1]
+        #ax_norm(ax)
+        plt.xlabel('')
+        plt.xlim([-130,130])
+        plt.ylim([-130,130])
+        #plt.title('A',)
+        plt.text(130*text_axis_ratio, -130*text_axis_ratio, 'A', size='x-large', ha='center', va='center')
+
+        plt.subplot(2,4,4, aspect='equal')
+        plotpoint(i1, newfig=False)
+        plt.locator_params(nbins=5)
+        ax = fig.get_axes()[-1]
+        #ax_norm(ax)
+        plt.xlabel('')
+        plt.ylabel('')
+        plt.xlim([-130,130])
+        plt.ylim([-130,130])
+        #plt.title('B')
+        plt.text(130*text_axis_ratio, -130*text_axis_ratio, 'B', size='x-large', ha='center', va='center')
+
+        plt.subplot(2,4,7, aspect='equal')
+        plotpoint(i3, newfig=False)
+        plt.locator_params(nbins=5)
+        ax = fig.get_axes()[-1]
+        #ax_norm(ax)
+        plt.xlim([-40,40])
+        plt.ylim([-40,40])
+        #plt.title('C')
+        plt.text(40*text_axis_ratio, -40*text_axis_ratio, 'C', size='x-large', ha='center', va='center')
+
+        plt.subplot(2,4,8, aspect='equal')
+        plotpoint(i4, newfig=False)
+        plt.locator_params(nbins=5)
+        ax = fig.get_axes()[-1]
+        #ax_norm(ax)
+        plt.xlim([-75,75])
+        plt.ylim([-75,75])
+        plt.ylabel('')
+        #plt.title('D')
+        plt.text(75*text_axis_ratio, -75*text_axis_ratio, 'D', size='x-large', ha='center', va='center')
+
+
+
+    fig.subplots_adjust(wspace=0.3)
 
 
 
@@ -72,6 +207,7 @@ fig = plt.figure()
 ax  = plt.subplot(111, aspect='equal')
 plt.subplots_adjust(bottom=0.2)
 d = cf.particles()
+e = cf.particles()
 
 mus             = []
 omegaes         = []
